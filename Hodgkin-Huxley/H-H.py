@@ -97,6 +97,7 @@ for stim_amplitude in stim_amplitudes:
     Vm_2000 = results[stim_amplitude][-1]  # at the end of the 2000 μsec period
     print(f"Stimulus: {stim_amplitude} μA, Vm at t ≤ 100 μsec: {Vm_100:.2f}, Vm at t > 200 μsec: {Vm_2000:.2f}")
 
+
 'Q NO.23: Threshold'
 amplitude_threshold = None
 Vm_threshold = None
@@ -104,7 +105,7 @@ action_potential, action_potential_check = None, None
 amp_range = np.linspace(0.1, 4, 100)
 for stim_amplitude in amp_range:
     Vm = Vm_init
-    n, m, h = 0.31768, 0.05293, 0.59612  # Reset gating variables
+    n, m, h = 0.31768, 0.05293, 0.59612
     Vm_values = []
 
     for t in range(time_steps):
@@ -146,7 +147,7 @@ for stim_amplitude in amp_range:
         vm_threshold = Vm_values[int(stim_durations / delta_time)]
         break
 
-print(f"Just-above-threshold stimulus amplitude: {threshold_amplitude} μA/cm²")
+print(f"\nJust-above-threshold stimulus amplitude: {threshold_amplitude} μA/cm²")
 print(f"Membrane voltage at the end of the stimulus (150 μsec): {vm_threshold:.2f} mV")
 
 'Q NO.24: Time to peak'
@@ -179,9 +180,53 @@ for stim_amplitude in stim_amplitudes:
 
 # Output results
 for stim_amplitude, (peak_time, peak_value) in results.items():
-    print(f"Stimulus Amplitude: {stim_amplitude} μA/cm²")
+    print(f"\nStimulus Amplitude: {stim_amplitude} μA/cm²")
     print(f"Time to peak: {peak_time:.2f} μsec")
-    print(f"Peak Membrane Potential (Vm): {peak_value:.2f} mV\n")
+    print(f"Peak Membrane Potential (Vm): {peak_value:.2f} mV")
+
+'Q NO.25: Time to return to initial conditions'
+# Stability envelope
+Vm_tolerance = 0.1  # mV
+gate_tolerance = 0.01  # for n, m, h
+Vm = Vm_init
+n_init, m_init, h_init = 0.31768, 0.05293, 0.59612
+n, m, h = n_init, m_init, h_init
+Vm_values, n_values, m_values, h_values = [], [], [], []
+
+stable_time = None  # Variable to store the time when stability is reached
+for t in range(time_steps):
+    current_time = t * delta_time
+    I_stim = stim_amplitude = 200 if current_time <= stim_durations else 0
+    dVm, dn, dm, dh, IK, INa = HH(Vm, n, m, h, I_stim)
+
+    Vm += dVm * delta_time
+    n += dn * delta_time
+    m += dm * delta_time
+    h += dh * delta_time
+
+    Vm_values.append(Vm)
+    n_values.append(n)
+    m_values.append(m)
+    h_values.append(h)
+
+    # Check stability after the stimulus has ended
+    if current_time > stim_durations:
+        if (abs(Vm - Vm_init) <= Vm_tolerance and
+                abs(n - n_init) <= gate_tolerance and
+                abs(m - m_init) <= gate_tolerance and
+                abs(h - h_init) <= gate_tolerance):
+
+            if stable_time is None:  # Only set stable time the first time conditions are met
+                stable_time = current_time
+
+# Output the results
+if stable_time:
+    print(f"Time to return to stable initial conditions: {stable_time * 1e6:.2f} μsec")
+else:
+    print("Membrane did not return to stable initial conditions within the simulation period.")
+
+'Q NO.26: Leakage gL'
+
 
 'Evaluation of m,n, h gates, Vm, K and Na behavior over time'
 stim_amplitude = 300.0  # Applied current (μA/cm^2)
