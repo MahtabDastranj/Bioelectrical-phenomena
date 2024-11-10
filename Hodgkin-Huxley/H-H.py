@@ -3,9 +3,11 @@ import matplotlib.pyplot as plt
 
 'Implementing H-H model'
 # Constants
-delta_time = 20e-6  # (50 microseconds)
-stim_durations = 150e-6  # (150 microseconds  duration that is minimally sufficient to produce an action potential)
-total_time = 2000e-6  # (2000 microseconds)
+delta_time = 0.05
+stim_durations = 150  # (150 microseconds  duration that is minimally sufficient to produce an action potential)
+total_time = 2000  # (2000 microseconds)
+start_time = 100
+stim_end_time = start_time + stim_durations
 time_steps = int(total_time / delta_time)
 
 # Membrane and Hodgkin-Huxley parameters
@@ -13,84 +15,128 @@ Cm = 1.0
 EK, ENa, EL = -72.1, 52.4, -49.187
 gK, gNa, gL = 36.0, 120.0, 0.3
 Vm_init = -60.0
-
 n_init, m_init, h_init = 0.31768, 0.05293, 0.59612
 
-stim_amplitudes = [200, 100, 400]  # Original, half, and double
-results = {}
+stim_amplitudes = [100, 200, 400]
 
 
-def alpha_n(Vm): return 0.01 * (Vm + 55) / (1 - np.exp(-(Vm + 55) / 10))
+def alpha_n(Vm): return 0.01 * (Vm + 50) / (1 - np.exp(-(Vm + 50) / 10))
 
 
-def beta_n(Vm): return 0.125 * np.exp(-(Vm + 65) / 80)
+def beta_n(Vm): return 0.125 * np.exp(-(Vm + 60) / 80)
 
 
-def alpha_m(Vm): return 0.1 * (Vm + 40) / (1 - np.exp(-(Vm + 40) / 10))
+def alpha_m(Vm): return 0.1 * (Vm + 35) / (1 - np.exp(-(Vm + 35) / 10))
 
 
-def beta_m(Vm): return 4 * np.exp(-(Vm + 65) / 18)
+def beta_m(Vm): return 4 * np.exp(-(Vm + 60) / 18)
 
 
-def alpha_h(Vm): return 0.07 * np.exp(-(Vm + 65) / 20)
+def alpha_h(Vm): return 0.07 * np.exp(-(Vm + 60) / 20)
 
 
-def beta_h(Vm): return 1 / (1 + np.exp(-(Vm + 35) / 10))
+def beta_h(Vm): return 1 / (1 + np.exp(-(Vm + 30) / 10))
 
 
-def HH(Vm, n, m, h, I_stim):
-    IK = gK * (n ** 4) * (Vm - EK)
-    INa = gNa * (m ** 3) * h * (Vm - ENa)
-    IL = gL * (Vm - EL)
-    Iion = IK + INa + IL
-    dVm = (I_stim - Iion) / Cm
-    dn = alpha_n(Vm) * (1 - n) - beta_n(Vm) * n
-    dm = alpha_m(Vm) * (1 - m) - beta_m(Vm) * m
-    dh = alpha_h(Vm) * (1 - h) - beta_h(Vm) * h
-    return dVm, dn, dm, dh, IK, INa
+def HH(delta_time, total_time, stim_amplitude):
+    t_values = np.arange(0, total_time, delta_time)
+    Vm_values = np.zeros(len(t_values))
+    m_values = np.zeros(len(t_values))
+    h_values = np.zeros(len(t_values))
+    n_values = np.zeros(len(t_values))
+    IK = np.zeros(len(t_values))
+    INa = np.zeros(len(t_values))
+    IL = np.zeros(len(t_values))
 
+    Vm_values[0] = Vm_init
+    m_values[0] = m_init
+    h_values[0] = h_init
+    n_values[0] = n_init
+
+    for t in range(len(t_values)):
+        I_stim = stim_amplitude if start_time <= t * delta_time <= start_time + stim_durations else 0
+        m = m_values[t - 1] + delta_time * (
+                    alpha_m(Vm_values[t - 1]) * (1 - m_values[t - 1]) - beta_m(Vm_values[t - 1]) * m_values[t - 1])
+        h = h_values[t - 1] + delta_time * (
+                    alpha_h(Vm_values[t - 1]) * (1 - h_values[t - 1]) - beta_h(Vm_values[t - 1]) * h_values[t - 1])
+        n = n_values[t - 1] + delta_time * (
+                    alpha_n(Vm_values[t - 1]) * (1 - n_values[t - 1]) - beta_n(Vm_values[t - 1]) * n_values[t - 1])
+
+        IK[t] = gK * (n ** 4) * (Vm_values[t - 1] - EK)
+        INa[t] = gNa * (m ** 3) * h * (Vm_values[t - 1] - ENa)
+        IL[t] = gL * (Vm_values[t - 1] - EL)
+        Iion = IK[t] + INa[t] + IL[t]
+        dVm = delta_time * (I_stim - Iion) / Cm
+        Vm_values[t] = Vm_values[t - 1] + dVm
+        m_values[t] = m
+        h_values[t] = h
+        n_values[t] = n
+
+    return t_values, Vm_values, m_values, h_values, n_values, IK, INa, IL
+'''
 'Q NO.22: Linearity'
-for stim_amplitude in stim_amplitudes:
-    Vm = Vm_init
-    n, m, h = 0.31768, 0.05293, 0.59612  # Reset gating variables
-    Vm_values = []
+t1, Vm1, _, _, _, _, _, _ = HH(delta_time, total_time, stim_amplitudes[0])
+t2, Vm2, _, _, _, _, _, _ = HH(delta_time, total_time, stim_amplitudes[1])
+t3, Vm3, _, _, _, _, _, _ = HH(delta_time, total_time, stim_amplitudes[2])
 
-    for t in range(time_steps):
-        current_time = t * delta_time
-        I_stim = stim_amplitude if current_time <= stim_durations else 0
-        dVm, dn, dm, dh, IK, INa = HH(Vm, n, m, h, I_stim)
+fig, axs = plt.subplots(3, 1, figsize=(10, 15))
 
-        Vm += dVm * delta_time
-        n += dn * delta_time
-        m += dm * delta_time
-        h += dh * delta_time
-        Vm_values.append(Vm)
+axs[0].plot(t1, Vm1, 'b', label='Vm')
+axs[0].set_title(f'Half Amplitude Stimulus ({stim_amplitudes[0]:.1f} μA/mm^2)')
+axs[0].set_ylabel('Membrane Potential (mV)')
+axs[0].grid()
+axs[0].set_xlim([0, 600])
+axs[0].set_ylim([-80, 100])
+axs[0].legend()
 
-    results[stim_amplitude] = Vm_values
+axs[1].plot(t2, Vm2, 'b', label='Vm')
+axs[1].set_title(f'Original Amplitude Stimulus ({stim_amplitudes[1]:.1f} μA/mm^2)')
+axs[1].set_ylabel('Membrane Potential (mV)')
+axs[1].grid()
+axs[1].set_xlim([0, 600])
+axs[1].set_ylim([-80, 100])
+axs[1].legend()
 
-# Plotting results
-time_axis = np.arange(0, total_time, delta_time) * 1e6  # in microseconds
-plt.figure(figsize=(10, 6))
+axs[2].plot(t3, Vm3, 'b', label='Vm')
+axs[2].set_title(f'Double Amplitude Stimulus ({stim_amplitudes[2]:.1f} μA/mm^2)')
+axs[2].set_xlabel('Time (ms)')
+axs[2].set_ylabel('Membrane Potential (mV)')
+axs[2].grid()
+axs[2].set_xlim([0, 600])
+axs[2].set_ylim([-80, 100])
+axs[2].legend()
 
-for stim_amplitude, Vm_values in results.items():
-    plt.plot(time_axis, Vm_values, label=f'Stimulus = {stim_amplitude} μA')
-
-plt.xlabel("Time (μsec)")
-plt.ylabel("Membrane Potential (Vm)")
-plt.legend()
-plt.title("Hodgkin-Huxley Model Response to Different Stimulus Amplitudes")
+plt.tight_layout()
 plt.show()
 
-# Check linearity by comparing Vm values at specific times
-t_100_index = int(100e-6 / delta_time)
-t_200_index = int(200e-6 / delta_time)
-
 # Analysis: Compare Vm values for linearity
-for stim_amplitude in stim_amplitudes:
-    Vm_100 = results[stim_amplitude][t_100_index]
-    Vm_2000 = results[stim_amplitude][-1]  # at the end of the 2000 μsec period
-    print(f"Stimulus: {stim_amplitude} μA, Vm at t ≤ 100 μsec: {Vm_100:.2f}, Vm at t > 200 μsec: {Vm_2000:.2f}")
+print('For t ≤ 100 μsec:')
+print(f'Half stimulus ratio: {np.mean(Vm1[:int(0.1 / delta_time)])/np.mean(Vm2[:int(0.1 / delta_time)]):.3f} (Expected: 0.5)')
+print(f'Double stimulus ratio: {np.mean(Vm3[:int(0.1 / delta_time)])/np.mean(Vm2[:int(0.1 / delta_time)]):.3f} (Expected: 2.0)')
+print('\nFor t > 200 μsec:')
+print(f'Half stimulus ratio: {np.mean(Vm1[int(0.2 / delta_time):])/np.mean(Vm2[int(0.2 / delta_time):]):.3f} (Expected: 0.5)')
+print(f'Double stimulus ratio: {np.mean(Vm3[int(0.2 / delta_time):])/np.mean(Vm2[int(0.2 / delta_time):]):.3f} (Expected: 2.0)')'''
 
+'Q NO.23: Threshold'
+amplitude_threshold, Vm_threshold, action_potential, action_potential_check, threshold = None, None, None, None, None
+amp_range = np.linspace(0, 200, 200)
+for amp in amp_range:
+    _, Vm_threshold, _, _, _, _, _, _ = HH(delta_time, total_time, amp)
+    for i in range(len(Vm_threshold)):
+        if Vm_threshold[i] > -55:  # Threshold for action potential(mV)
+            action_potential = True
+        if action_potential:
+            # Check by lowering amplitude by 1 μA/cm² to see if it fails to produce action potential
+            _, Vm_check, _, _, _, _, _, _ = HH(delta_time, total_time, amp - 1)
+            for j in range(len(Vm_check)):
+                if Vm_check[j] < -55:
+                    action_potential_check = True
+                    amplitude_threshold = amp
+                    threshold = Vm_threshold[i]
+
+print(f"\nJust-above-threshold stimulus amplitude: {amplitude_threshold} μA/cm²")
+print(f"Membrane voltage at the end of the stimulus (150 μsec): {threshold:.2f} mV")
+'''
 
 'Q NO.23: Threshold'
 amplitude_threshold = None
@@ -217,8 +263,8 @@ for t in range(time_steps):
 # Output the results
 if stable_time:
     print(f"\nTime to return to stable initial conditions: {stable_time * 1e6:.2f} μsec\n")
-'''else:
-    print("Membrane did not return to stable initial conditions within the simulation period.\n")'''
+else:
+    print("Membrane did not return to stable initial conditions within the simulation period.\n")
 
 'Q NO.26: Leakage gL'
 
@@ -463,3 +509,4 @@ for name, waveform in waveforms.items():
 print("\nThreshold amplitudes required to trigger action potential:")
 for name, amplitude in thresholds.items():
     print(f"{name} waveform: {amplitude:.2f} μA/cm²")
+'''
