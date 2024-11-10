@@ -351,3 +351,4 @@ plt.ylabel("Stimulus Amplitude I (μA/cm²)")
 plt.title("I-T Curve Showing Relative Refractory Period")
 plt.grid(True)
 plt.show()
+ghg
