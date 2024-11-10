@@ -10,18 +10,12 @@ time_steps = int(total_time / delta_time)
 
 # Membrane and Hodgkin-Huxley parameters
 Cm = 1.0
-EK = -72.1
-ENa = 52.4
-EL = -49.187
-gK = 36.0
-gNa = 120.0
-gL = 0.3
+EK, ENa, EL = -72.1, 52.4, -49.187
+gK, gNa, gL = 36.0, 120.0, 0.3
 Vm_init = -60.0
 
-# Initial gating variables
-n, m, h = 0.31768, 0.05293, 0.59612
+n_init, m_init, h_init = 0.31768, 0.05293, 0.59612
 
-# Stimulus configurations
 stim_amplitudes = [200, 100, 400]  # Original, half, and double
 results = {}
 
@@ -191,11 +185,10 @@ for stim_amplitude, (peak_time, peak_value) in results.items():
 Vm_tolerance = 0.1  # mV
 gate_tolerance = 0.01  # for n, m, h
 Vm = Vm_init
-n_init, m_init, h_init = 0.31768, 0.05293, 0.59612
 n, m, h = n_init, m_init, h_init
 Vm_values, n_values, m_values, h_values = [], [], [], []
 
-stable_time = None  # Variable to store the time when stability is reached
+stable_time = None
 for t in range(time_steps):
     current_time = t * delta_time
     I_stim = stim_amplitude = 200 if current_time <= stim_durations else 0
@@ -223,15 +216,15 @@ for t in range(time_steps):
 
 # Output the results
 if stable_time:
-    print(f"Time to return to stable initial conditions: {stable_time * 1e6:.2f} μsec")
-else:
-    print("Membrane did not return to stable initial conditions within the simulation period.")
+    print(f"\nTime to return to stable initial conditions: {stable_time * 1e6:.2f} μsec")
+'''else:
+    print("Membrane did not return to stable initial conditions within the simulation period.")'''
 
 'Q NO.26: Leakage gL'
 
 
 'Evaluation of m,n, h gates, Vm, K and Na behavior over time'
-stim_amplitude = 300.0  # Applied current (μA/cm^2)
+stim_amplitude = 300.0
 Vm = Vm_init
 n, m, h = 0.31768, 0.05293, 0.59612
 Vm_values, n_values, m_values, h_values, IK_values, INa_values = [], [], [], [], [], []
@@ -256,6 +249,7 @@ for t in range(time_steps):
 time_axis = np.arange(0, total_time, delta_time) * 1e6
 
 fig, axs = plt.subplots(2, 2, figsize=(10, 9))
+fig.suptitle('Behavior of Vm, IK, INa during an action potential', fontsize=16)
 
 ax1 = plt.subplot(212)
 ax1.plot(time_axis, Vm_values, label='Vm')
@@ -283,6 +277,7 @@ plt.tight_layout()
 plt.show()
 
 fig, axs = plt.subplots(3, 1, figsize=(10, 9))
+fig.suptitle('Behavior of m, n, h gates during an action potential', fontsize=16)
 
 axs[0].plot(time_axis, n_values, label='n(t)')
 axs[0].set_xlabel('Time (μs)')
@@ -303,4 +298,56 @@ axs[2].set_title('Na+ Gate Dynamics for h(t)')
 axs[2].legend()
 
 plt.tight_layout()
+plt.show()
+
+'Time interval T required for the cell to take before going through an action potential just after getting out of one'
+total_time = 20e-3  # Increase to capture long-term effects
+time_steps = int(total_time / delta_time)
+
+
+def simulate_ap(stim_amplitude, start_time):
+    Vm = Vm_init
+    n, m, h = 0.31768, 0.05293, 0.59612
+    Vm_values = []
+
+    for t in range(time_steps):
+        current_time = t * delta_time
+        I_stim = stim_amplitude if start_time <= current_time <= start_time + stim_durations else 0
+        dVm, dn, dm, dh, _, _ = HH(Vm, n, m, h, I_stim)
+        Vm += dVm * delta_time
+        n += dn * delta_time
+        m += dm * delta_time
+        h += dh * delta_time
+        Vm_values.append(Vm)
+
+    return Vm_values
+
+
+# Finding I-T curve
+time_intervals = np.arange(1e-3, 10e-3, 1e-3)  # Time intervals in seconds (1 ms to 10 ms)
+stim_amplitude_start = 300  # Starting amplitude
+I_values = []
+
+for T in time_intervals:
+    success = False
+    current_I = stim_amplitude_start
+
+    # Adjust I until it creates a second AP at interval T
+    while not success:
+        Vm_first_ap = simulate_ap(stim_amplitude_start, start_time=0)
+        Vm_second_ap = simulate_ap(current_I, start_time=T)
+
+        # Check if second stimulus generated an action potential
+        if max(Vm_second_ap) > vm_threshold:
+            I_values.append(current_I)
+            success = True
+        else:
+            current_I += 10  # Increase the amplitude until AP is observed
+
+# Plotting the I-T curve
+plt.plot(time_intervals * 1e3, I_values, '-o')  # Convert time to ms for readability
+plt.xlabel("Interval T (ms)")
+plt.ylabel("Stimulus Amplitude I (μA/cm²)")
+plt.title("I-T Curve Showing Relative Refractory Period")
+plt.grid(True)
 plt.show()
