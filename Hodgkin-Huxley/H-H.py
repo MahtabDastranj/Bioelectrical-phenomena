@@ -153,6 +153,8 @@ print(f"Membrane voltage at the end of the stimulus (150 μsec): {vm_threshold:.
 'Q NO.24: Time to peak'
 stim_amplitude = [50, 200, 500]
 results = {}
+delta_time = 50e-6
+time_steps = int(total_time / delta_time)
 for stim_amplitude in stim_amplitudes:
     Vm = Vm_init
     n, m, h = 0.31768, 0.05293, 0.59612  # Reset gating variables
