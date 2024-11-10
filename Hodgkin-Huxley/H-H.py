@@ -216,12 +216,71 @@ for t in range(time_steps):
 
 # Output the results
 if stable_time:
-    print(f"\nTime to return to stable initial conditions: {stable_time * 1e6:.2f} μsec")
+    print(f"\nTime to return to stable initial conditions: {stable_time * 1e6:.2f} μsec\n")
 '''else:
-    print("Membrane did not return to stable initial conditions within the simulation period.")'''
+    print("Membrane did not return to stable initial conditions within the simulation period.\n")'''
 
 'Q NO.26: Leakage gL'
 
+
+'Q NO.27 AP from 2nd stimulus'
+for stim_amplitude in stim_amplitudes:
+    min_interval = None  # To store the earliest interval that produces a second action potential
+
+    for interval in range(int(stim_durations / delta_time), time_steps):
+        Vm = Vm_init
+        n, m, h = n_init, m_init, h_init
+        INaflag = 0  # Initial flag for INa dominance
+        AP_count = 0  # Counter for action potentials
+        second_stimulus_ap = False
+
+        # Main simulation loop
+        for t in range(time_steps):
+            current_time = t * delta_time
+
+            # Determine stimulus based on time and interval
+            if current_time <= stim_durations:
+                I_stim = stim_amplitude
+            elif stim_durations < current_time <= stim_durations + interval * delta_time:
+                I_stim = 0
+            elif stim_durations + interval * delta_time < current_time <= 2 * stim_durations + interval * delta_time:
+                I_stim = stim_amplitude
+            else:
+                I_stim = 0
+
+            # Compute HH model derivatives
+            dVm, dn, dm, dh, IK, INa = HH(Vm, n, m, h, I_stim)
+
+            # Update variables
+            Vm += dVm * delta_time
+            n += dn * delta_time
+            m += dm * delta_time
+            h += dh * delta_time
+
+            # Update INaflag: set to 1 if -INa exceeds IK, otherwise 0
+            if -INa > IK:
+                if INaflag == 0:
+                    INaflag = 1
+                    AP_count += 1  # Count action potential
+                    if AP_count == 2:
+                        second_stimulus_ap = True
+                        min_interval = interval * delta_time * 1e6  # Convert to μsec
+                        break
+            else:
+                INaflag = 0
+
+        if second_stimulus_ap:
+            break  # Stop searching intervals once the earliest AP is found
+
+    # Store results for this stimulus amplitude
+    results[stim_amplitude] = min_interval if min_interval is not None else "No AP from second stimulus"
+
+# Output results
+for stim_amplitude, min_interval in results.items():
+    if min_interval != "No AP from second stimulus":
+        print(f"Earliest interval for stimulus amplitude {stim_amplitude} μA/cm²: {min_interval:.2f} μsec")
+    else:
+        print(f"Stimulus amplitude {stim_amplitude} μA/cm² did not produce a second action potential.")
 
 'Evaluation of m,n, h gates, Vm, K and Na behavior over time'
 stim_amplitude = 300.0
@@ -324,7 +383,7 @@ def simulate_ap(stim_amplitude, start_time):
 
 
 # Finding I-T curve
-time_intervals = np.arange(1e-3, 10e-3, 1e-3)  # Time intervals in seconds (1 ms to 10 ms)
+time_intervals = np.arange(1e-3, 10e-3, 100e-6)  # Time intervals in seconds (1 ms to 10 ms)
 stim_amplitude_start = 300  # Starting amplitude
 I_values = []
 
@@ -351,4 +410,54 @@ plt.ylabel("Stimulus Amplitude I (μA/cm²)")
 plt.title("I-T Curve Showing Relative Refractory Period")
 plt.grid(True)
 plt.show()
-ghg
+
+'Dependency of threshold amplitude for action potential to waveform'
+delta_time = 50e-6  # Time step (s)
+total_time = 5e-3  # Total simulation time (s)
+time_steps = int(total_time / delta_time)
+
+
+def square_waveform(t, amplitude, duration=0.5e-3): return amplitude if t < duration else 0
+
+
+def sinusoidal_waveform(t, amplitude, frequency=100): return amplitude * np.sin(2 * np.pi * frequency * t) if t < 1 / frequency else 0
+
+
+def sawtooth_waveform(t, amplitude, duration=0.5e-3): return amplitude * (t / duration) if t < duration else 0
+
+
+waveforms = {"Square": square_waveform, "Sinusoidal": sinusoidal_waveform, "Sawtooth": sawtooth_waveform}
+thresholds = {}
+
+for name, waveform in waveforms.items():
+    action_potential_triggered = False
+    amplitude = 0  # Start with 0 and incrementally increase until AP is generated
+
+    while not action_potential_triggered:
+        Vm = Vm_init
+        n, m, h = n_init, m_init, h_init
+        Vm_values = []
+        amplitude += 5  # Increment the amplitude
+
+        # Run HH model simulation
+        for t in range(time_steps):
+            current_time = t * delta_time
+            I_stim = waveform(current_time, amplitude)
+
+            # Update HH variables
+            dVm, dn, dm, dh, IK, INa = HH(Vm, n, m, h, I_stim)
+            Vm += dVm * delta_time
+            n += dn * delta_time
+            m += dm * delta_time
+            h += dh * delta_time
+            Vm_values.append(Vm)
+
+            if Vm > -55:  # Threshold for action potential
+                action_potential_triggered = True
+                break
+
+        thresholds[name] = amplitude
+
+print("\nThreshold amplitudes required to trigger action potential:")
+for name, amplitude in thresholds.items():
+    print(f"{name} waveform: {amplitude:.2f} μA/cm²")
