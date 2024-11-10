@@ -420,7 +420,9 @@ time_steps = int(total_time / delta_time)
 def square_waveform(t, amplitude, duration=0.5e-3): return amplitude if t < duration else 0
 
 
-def sinusoidal_waveform(t, amplitude, frequency=100): return amplitude * np.sin(2 * np.pi * frequency * t) if t < 1 / frequency else 0
+def sinusoidal_waveform(t, amplitude, frequency=100): return amplitude * np.sin(2 * np.pi * frequency * t) if (t < 1 /
+                                                                                                               frequency
+                                                                                                               ) else 0
 
 
 def sawtooth_waveform(t, amplitude, duration=0.5e-3): return amplitude * (t / duration) if t < duration else 0
