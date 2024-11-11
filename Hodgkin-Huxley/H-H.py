@@ -204,10 +204,149 @@ plt.legend()
 plt.show()
 
 'Q NO.26: Leakage gL'
+stim = 200
+def HH_EL(delta_time, total_time, stim_amplitude):
+    t_values = np.arange(0, total_time, delta_time)
+    Vm_values = np.zeros(len(t_values))
+    m_values = np.zeros(len(t_values))
+    h_values = np.zeros(len(t_values))
+    n_values = np.zeros(len(t_values))
+    IK = np.zeros(len(t_values))
+    INa = np.zeros(len(t_values))
+    IL = np.zeros(len(t_values))
 
+    Vm_values[0] = Vm_init
+    m_values[0] = m_init
+    h_values[0] = h_init
+    n_values[0] = n_init
+    EL = (Vm_init * (gNa * m_values[0] ** 3 * h_values[0] + gK * n_values[0] ** 4 + gL) - (
+            gNa * m_values[0] ** 3 * h_values[0] * ENa + gK * n_values[0] ** 4 * EK)) / gL
+
+    stable_time = None
+    time_since_stable = 0
+
+    for t in range(len(t_values) - 1):
+        I_stim = stim_amplitude if start_time <= t * delta_time <= start_time + stim_durations else 0
+        m = m_values[t] + delta_time * (
+                    alpha_m(Vm_values[t]) * (1 - m_values[t]) - beta_m(Vm_values[t]) * m_values[t])
+        h = h_values[t] + delta_time * (
+                    alpha_h(Vm_values[t]) * (1 - h_values[t]) - beta_h(Vm_values[t]) * h_values[t])
+        n = n_values[t] + delta_time * (
+                    alpha_n(Vm_values[t]) * (1 - n_values[t]) - beta_n(Vm_values[t]) * n_values[t])
+
+        IK[t] = gK * (n_values[t] ** 4) * (Vm_values[t] - EK)
+        INa[t] = gNa * (m_values[t] ** 3) * h_values[t] * (Vm_values[t] - ENa)
+        IL[t] = gL * (Vm_values[t] - EL)
+        Iion = IK[t] + INa[t] + IL[t]
+        dVm = delta_time / Cm * (I_stim - Iion)
+        Vm_values[t + 1] = Vm_values[t] + dVm
+        m_values[t + 1] = m
+        h_values[t + 1] = h
+        n_values[t + 1] = n
+
+        'Stability time'
+        if t * delta_time >= stim_end_time:
+            Vm_return = abs(Vm_values[t + 1] - Vm_init) <= 0.1
+            n_return = abs(n_values[t + 1] - n_init) <= 0.01
+            m_return = abs(m_values[t + 1] - m_init) <= 0.01
+            h_return = abs(h_values[t + 1] - h_init) <= 0.01
+
+            if Vm_return and n_return and m_return and h_return:
+                if time_since_stable == 0:
+                    time_since_stable = t_values[t + 1]
+                if stable_time is None:
+                    stable_time = time_since_stable - start_time
+            else:
+                time_since_stable = 0
+                stable_time = None
+
+    return t_values, Vm_values, m_values, h_values, n_values, IK, INa, IL, stable_time, EL
+
+
+t_values, Vm_values, _, _, _, _, _, _, stable_time, EL = HH_EL(delta_time, total_time, stim)
+print(f'EL = {EL}')
+if stable_time is not None:
+    print(f'Stable return time: {stable_time} ms')
+
+plt.figure(figsize=(10, 6))
+plt.plot(t_values, Vm_values, label='Membrane Voltage (Vm)')
+if stable_time is not None:
+    plt.axvline(x=stable_time, color='m', linestyle='--', label='Stability Return Time')
+    plt.text(stable_time, Vm_values[np.argmin(np.abs(t_values - stable_time))], f'{stable_time:.2f} μs', color='m')
+plt.title('Membrane Potential Over Time for gL = 0.01')
+plt.xlabel('Time (μs)')
+plt.ylabel('Membrane Voltage (mV)')
+plt.xlim([0, 250])  # Adjust as needed
+plt.grid()
+plt.legend()
+plt.show()
 
 'Q NO.27 AP from 2nd stimulus'
+def HH_with_stimulus(delta_time, total_time, stim_amplitude, stim_start_time, stim_duration, interval):
+    t_values = np.arange(0, total_time, delta_time)
+    Vm_values = np.zeros(len(t_values))
+    m_values = np.zeros(len(t_values))
+    h_values = np.zeros(len(t_values))
+    n_values = np.zeros(len(t_values))
+    IK = np.zeros(len(t_values))
+    INa = np.zeros(len(t_values))
+    INaflag = np.zeros(len(t_values), dtype=int)
 
+    Vm_values[0] = Vm_init
+    m_values[0] = m_init
+    h_values[0] = h_init
+    n_values[0] = n_init
+
+    for t in range(len(t_values) - 1):
+        # Apply first stimulus
+        if stim_start_time <= t * delta_time < stim_start_time + stim_duration:
+            I_stim = stim_amplitude
+        # Apply second stimulus at the interval after first start time
+        elif stim_start_time + interval <= t * delta_time < stim_start_time + interval + stim_duration:
+            I_stim = stim_amplitude
+        else:
+            I_stim = 0
+
+        # Update gating variables
+        m = m_values[t] + delta_time * (alpha_m(Vm_values[t]) * (1 - m_values[t]) - beta_m(Vm_values[t]) * m_values[t])
+        h = h_values[t] + delta_time * (alpha_h(Vm_values[t]) * (1 - h_values[t]) - beta_h(Vm_values[t]) * h_values[t])
+        n = n_values[t] + delta_time * (alpha_n(Vm_values[t]) * (1 - n_values[t]) - beta_n(Vm_values[t]) * n_values[t])
+
+        # Calculate currents
+        IK[t] = gK * (n ** 4) * (Vm_values[t] - EK)
+        INa[t] = gNa * (m ** 3) * h * (Vm_values[t] - ENa)
+        Iion = IK[t] + INa[t] + gL * (Vm_values[t] - EL)
+
+        # Update membrane potential
+        dVm = delta_time / Cm * (I_stim - Iion)
+        Vm_values[t + 1] = Vm_values[t] + dVm
+        m_values[t + 1], h_values[t + 1], n_values[t + 1] = m, h, n
+
+        # Set INaflag when -INa exceeds IK
+        if -INa[t] > IK[t]:
+            INaflag[t] = 1
+        else:
+            INaflag[t] = 0
+
+    # Check if a second action potential occurred
+    AP_detected = np.any(np.diff(INaflag[stim_start_time + interval:]) == 1)
+    return AP_detected
+
+
+def find_min_interval(delta_time, total_time, stim_amplitude):
+    for interval in range(50, int(total_time), 50):  # Check intervals in multiples of 50 μs
+        if HH_with_stimulus(delta_time, total_time, stim_amplitude, start_time, stim_durations, interval):
+            return interval  # Return the interval when second action potential is detected
+    return None  # Return None if no interval produces a second AP
+
+
+interval_50uA = find_min_interval(delta_time, total_time, 50)
+interval_200uA = find_min_interval(delta_time, total_time, 200)
+interval_500uA = find_min_interval(delta_time, total_time, 500)
+
+print(f"The earliest interval for 50 μA/cm² to produce a second AP is {interval_50uA} μs.")
+print(f"The earliest interval for 200 μA/cm² to produce a second AP is {interval_200uA} μs.")
+print(f"The earliest interval for 500 μA/cm² to produce a second AP is {interval_500uA} μs.")
 
 'Evaluation of m,n, h gates, Vm, K and Na behavior over time'
 stim_amplitude = 200.0
@@ -363,136 +502,3 @@ print(f"Minimum amplitude for square wave: {min_amp_square}")
 print(f"Minimum amplitude for sawtooth wave: {min_amp_sawtooth}")
 print(f"Minimum amplitude for sinusoidal wave: {min_amp_sinusoidal}")
 
-'''
-
-# Finding I-T curve
-time_intervals = np.arange(1e-3, 10e-3, 100e-6)  # Time intervals in seconds (1 ms to 10 ms)
-stim_amplitude_start = 300  # Starting amplitude
-I_values = []
-
-for T in time_intervals:
-    success = False
-    current_I = stim_amplitude_start
-
-    # Adjust I until it creates a second AP at interval T
-    while not success:
-        Vm_first_ap = simulate_ap(stim_amplitude_start, start_time=0)
-        Vm_second_ap = simulate_ap(current_I, start_time=T)
-
-        # Check if second stimulus generated an action potential
-        if max(Vm_second_ap) > vm_threshold:
-            I_values.append(current_I)
-            success = True
-        else:
-            current_I += 10  # Increase the amplitude until AP is observed
-
-# Plotting the I-T curve
-plt.plot(time_intervals * 1e3, I_values, '-o')  # Convert time to ms for readability
-plt.xlabel("Interval T (ms)")
-plt.ylabel("Stimulus Amplitude I (μA/cm²)")
-plt.title("I-T Curve Showing Relative Refractory Period")
-plt.grid(True)
-plt.show()'''
-'''
-'Q NO.25: Time to return to initial conditions'
-# Stability envelope
-Vm_tolerance = 0.1 * V  # mV
-gate_tolerance = 0.01  # for n, m, h
-Vm = Vm_init
-n, m, h = n_init, m_init, h_init
-Vm_values, n_values, m_values, h_values = [], [], [], []
-
-stable_time = None
-for t in range(time_steps):
-    current_time = t * delta_time
-    I_stim = stim_amplitude = 200 if current_time <= stim_durations else 0
-    dVm, dn, dm, dh, IK, INa = HH(Vm, n, m, h, I_stim)
-
-    Vm += dVm * delta_time
-    n += dn * delta_time
-    m += dm * delta_time
-    h += dh * delta_time
-
-    Vm_values.append(Vm)
-    n_values.append(n)
-    m_values.append(m)
-    h_values.append(h)
-
-    # Check stability after the stimulus has ended
-    if current_time > stim_durations:
-        if (abs(Vm - Vm_init) <= Vm_tolerance and
-                abs(n - n_init) <= gate_tolerance and
-                abs(m - m_init) <= gate_tolerance and
-                abs(h - h_init) <= gate_tolerance):
-
-            if stable_time is None:  # Only set stable time the first time conditions are met
-                stable_time = current_time
-
-# Output the results
-if stable_time:
-    print(f"\nTime to return to stable initial conditions: {stable_time * 1e6:.2f} μsec\n")
-else:
-    print("Membrane did not return to stable initial conditions within the simulation period.\n")
-
-'Q NO.26: Leakage gL'
-
-
-'Q NO.27 AP from 2nd stimulus'
-for stim_amplitude in stim_amplitudes:
-    min_interval = None  # To store the earliest interval that produces a second action potential
-
-    for interval in range(int(stim_durations / delta_time), time_steps):
-        Vm = Vm_init
-        n, m, h = n_init, m_init, h_init
-        INaflag = 0  # Initial flag for INa dominance
-        AP_count = 0  # Counter for action potentials
-        second_stimulus_ap = False
-
-        # Main simulation loop
-        for t in range(time_steps):
-            current_time = t * delta_time
-
-            # Determine stimulus based on time and interval
-            if current_time <= stim_durations:
-                I_stim = stim_amplitude
-            elif stim_durations < current_time <= stim_durations + interval * delta_time:
-                I_stim = 0
-            elif stim_durations + interval * delta_time < current_time <= 2 * stim_durations + interval * delta_time:
-                I_stim = stim_amplitude
-            else:
-                I_stim = 0
-
-            # Compute HH model derivatives
-            dVm, dn, dm, dh, IK, INa = HH(Vm, n, m, h, I_stim)
-
-            # Update variables
-            Vm += dVm * delta_time
-            n += dn * delta_time
-            m += dm * delta_time
-            h += dh * delta_time
-
-            # Update INaflag: set to 1 if -INa exceeds IK, otherwise 0
-            if -INa > IK:
-                if INaflag == 0:
-                    INaflag = 1
-                    AP_count += 1  # Count action potential
-                    if AP_count == 2:
-                        second_stimulus_ap = True
-                        min_interval = interval * delta_time * 1e6  # Convert to μsec
-                        break
-            else:
-                INaflag = 0
-
-        if second_stimulus_ap:
-            break  # Stop searching intervals once the earliest AP is found
-
-    # Store results for this stimulus amplitude
-    results[stim_amplitude] = min_interval if min_interval is not None else "No AP from second stimulus"
-
-# Output results
-for stim_amplitude, min_interval in results.items():
-    if min_interval != "No AP from second stimulus":
-        print(f"Earliest interval for stimulus amplitude {stim_amplitude} μA/cm²: {min_interval:.2f} μsec")
-    else:
-        print(f"Stimulus amplitude {stim_amplitude} μA/cm² did not produce a second action potential.")
-'''
