@@ -17,8 +17,6 @@ gK, gNa, gL = 36.0, 120.0, 0.3
 Vm_init = -60.0
 n_init, m_init, h_init = 0.31768, 0.05293, 0.59612
 
-stim_amplitudes = [100, 200, 400]
-
 
 def alpha_n(Vm): return 0.01 * (Vm + 50) / (1 - np.exp(-(Vm + 50) / 10))
 
@@ -53,6 +51,9 @@ def HH(delta_time, total_time, stim_amplitude):
     h_values[0] = h_init
     n_values[0] = n_init
 
+    stable_time = None
+    time_since_stable = 0
+
     for t in range(len(t_values) - 1):
         I_stim = stim_amplitude if start_time <= t * delta_time <= start_time + stim_durations else 0
         m = m_values[t] + delta_time * (
@@ -72,15 +73,30 @@ def HH(delta_time, total_time, stim_amplitude):
         h_values[t + 1] = h
         n_values[t + 1] = n
 
-    return t_values, Vm_values, m_values, h_values, n_values, IK, INa, IL
+        'Stability time'
+        if t * delta_time >= stim_end_time:
+            Vm_return = abs(Vm_values[t + 1] - Vm_init) <= 0.1
+            n_return = abs(n_values[t + 1] - n_init) <= 0.01
+            m_return = abs(m_values[t + 1] - m_init) <= 0.01
+            h_return = abs(h_values[t + 1] - h_init) <= 0.01
+
+            if Vm_return and n_return and m_return and h_return:
+                if time_since_stable == 0:
+                    time_since_stable = t_values[t + 1]
+                if stable_time is None:
+                    stable_time = time_since_stable - start_time
+            else:
+                time_since_stable = 0
+                stable_time = None
+
+
+    return t_values, Vm_values, m_values, h_values, n_values, IK, INa, IL, stable_time
 
 'Q NO.22: Linearity'
-t1, Vm1, _, _, _, _, _, _ = HH(delta_time, total_time, stim_amplitudes[0])
-t2, Vm2, _, _, _, _, _, _ = HH(delta_time, total_time, stim_amplitudes[1])
-t3, Vm3, _, _, _, _, _, _ = HH(delta_time, total_time, stim_amplitudes[2])
-
-print(Vm1)
-print(Vm2)
+stim_amplitudes = [100, 200, 400]
+t1, Vm1, _, _, _, _, _, _, _ = HH(delta_time, total_time, stim_amplitudes[0])
+t2, Vm2, _, _, _, _, _, _, _ = HH(delta_time, total_time, stim_amplitudes[1])
+t3, Vm3, _, _, _, _, _, _, _ = HH(delta_time, total_time, stim_amplitudes[2])
 
 fig, axs = plt.subplots(3, 1, figsize=(10, 15))
 
@@ -136,11 +152,11 @@ amp, max_amp = 0, 100
 while not threshold_found and amp < max_amp:
     amp += 0.5
     print(f'Checking amplitude {amp} as the threshold')
-    _, Vm, _, _, _, _, _, _ = HH(delta_time, total_time, amp)
+    _, Vm, _, _, _, _, _, _, _ = HH(delta_time, total_time, amp)
     ap = AP_check(Vm)
 
     if ap:
-        _, Vm_check, _, _, _, _, _, _ = HH(delta_time, total_time, amp - 1)
+        _, Vm_check, _, _, _, _, _, _, _ = HH(delta_time, total_time, amp - 1)
         threshold_check = AP_check(Vm_check)
         if not threshold_check:
             threshold_found = True
@@ -157,14 +173,35 @@ if threshold_found:
 Vm = []
 stim_amplitudes = [50, 200, 500]
 for stim_amplitude in stim_amplitudes:
-    t_values, Vm, _, _, _, _, _, _ = HH(delta_time, total_time, stim_amplitude)
+    t_values, Vm, _, _, _, _, _, _, _ = HH(delta_time, total_time, stim_amplitude)
     max_index = np.argmax(Vm)
     time_at_max_Vm = t_values[max_index]
     print(f'\nFor stimulation amplitude {stim_amplitude} μA/cm², '
           f'maximum membrane voltage {np.max(Vm)} will hit its maximum amount at {time_at_max_Vm}')
 
 'Q NO.25: Time to return to initial conditions'
+stim_amplitude = 200  # Example stimulus
+t_values, Vm_values, _, _, _, _, _, _, stable_time = HH(delta_time, total_time, stim_amplitude)
 
+# Output the stable return time
+if stable_time is not None:
+    print(f'Stability return time for stimulation amplitude of {stim_amplitude}: {stable_time} μs')
+else:
+    print('Variables did not return to stable conditions within the simulation time.')
+
+# Plot the results
+plt.figure(figsize=(10, 6))
+plt.plot(t_values, Vm_values, label='Membrane Voltage (Vm)')
+if stable_time is not None:
+    plt.axvline(x=stable_time, color='m', linestyle='--', label='Stability Return Time')
+    plt.text(stable_time, Vm_values[np.argmin(np.abs(t_values - stable_time))], f'{stable_time:.2f} μs', color='m')
+plt.title('Membrane Potential Over Time')
+plt.xlabel('Time (μs)')
+plt.ylabel('Membrane Voltage (mV)')
+plt.xlim([0, 250])  # Adjust as needed
+plt.grid()
+plt.legend()
+plt.show()
 
 'Q NO.26: Leakage gL'
 
@@ -174,7 +211,7 @@ for stim_amplitude in stim_amplitudes:
 
 'Evaluation of m,n, h gates, Vm, K and Na behavior over time'
 stim_amplitude = 200.0
-t_values, Vm_values, m_values, h_values, n_values, IK_values, INa_values, IL_values = HH(delta_time, total_time, stim_amplitude)
+t_values, Vm_values, m_values, h_values, n_values, IK_values, INa_values, IL_values, _ = HH(delta_time, total_time, stim_amplitude)
 
 # Plotting
 time_axis = np.arange(0, total_time, delta_time)
@@ -241,12 +278,91 @@ plt.tight_layout()
 plt.show()
 
 'Time interval T required for the cell to take before going through an action potential just after getting out of one'
-stim_amp_start = 100
-time_interval = np.arange(1, 10, 0.1)
-success = False
-for T in time_interval:
-    while not success:
-        _, Vm_first_ap, _, _, _, _, _, _ = HH(delta_time, total_time, stim_amp_start)
+
+
+'Dependency of threshold amplitude for action potential to waveform'
+Vm_values = []
+
+
+def square_wave(amplitude, t, start_time, stim_end_time):
+    return amplitude if start_time <= t <= stim_end_time else 0
+
+
+def sawtooth_wave(amplitude, t, start_time, stim_end_time):
+    if start_time <= t <= stim_end_time:
+        return amplitude * (t - start_time) / (stim_end_time - start_time)
+    return 0
+
+
+def sinusoidal_wave(amplitude, t, start_time, stim_end_time):
+    if start_time <= t <= stim_end_time:
+        return amplitude * np.sin(np.pi * (t - start_time) / (stim_end_time - start_time))
+    return 0
+
+
+# Updated HH function to take a waveform function as input
+def HH_waveform(delta_time, total_time, waveform_func):
+    t_values = np.arange(0, total_time, delta_time)
+    Vm_values = np.zeros(len(t_values))
+    m_values = np.zeros(len(t_values))
+    h_values = np.zeros(len(t_values))
+    n_values = np.zeros(len(t_values))
+    IK = np.zeros(len(t_values))
+    INa = np.zeros(len(t_values))
+    IL = np.zeros(len(t_values))
+
+    Vm_values[0] = Vm_init
+    m_values[0] = m_init
+    h_values[0] = h_init
+    n_values[0] = n_init
+
+    for t in range(len(t_values) - 1):
+        # Use the waveform function to calculate I_stim at each time step
+        I_stim = waveform_func(t * delta_time)
+
+        m = m_values[t] + delta_time * (
+                alpha_m(Vm_values[t]) * (1 - m_values[t]) - beta_m(Vm_values[t]) * m_values[t])
+        h = h_values[t] + delta_time * (
+                alpha_h(Vm_values[t]) * (1 - h_values[t]) - beta_h(Vm_values[t]) * h_values[t])
+        n = n_values[t] + delta_time * (
+                alpha_n(Vm_values[t]) * (1 - n_values[t]) - beta_n(Vm_values[t]) * n_values[t])
+
+        IK[t] = gK * (n_values[t] ** 4) * (Vm_values[t] - EK)
+        INa[t] = gNa * (m_values[t] ** 3) * h_values[t] * (Vm_values[t] - ENa)
+        IL[t] = gL * (Vm_values[t] - EL)
+        Iion = IK[t] + INa[t] + IL[t]
+        dVm = delta_time / Cm * (I_stim - Iion)
+        Vm_values[t + 1] = Vm_values[t] + dVm
+        m_values[t + 1] = m
+        h_values[t + 1] = h
+        n_values[t + 1] = n
+
+    return t_values, Vm_values, m_values, h_values, n_values, IK, INa, IL
+
+
+# Function to find the minimum amplitude for an action potential
+def find_min_amplitude(waveform_func, delta_time, total_time, start_time, stim_end_time):
+    min_amplitude = None
+    for amplitude in np.arange(0, 100, 2.5):  # Gradually increase amplitude to find minimum
+        # Create a lambda function that captures amplitude for the waveform function
+        I_stim_func = lambda t: waveform_func(amplitude, t, start_time, stim_end_time)
+        t_values, Vm_values, _, _, _, _, _, _ = HH_waveform(delta_time, total_time, I_stim_func)
+
+        if AP_check(Vm_values):  # Threshold for action potential
+            min_amplitude = amplitude
+            break
+    return min_amplitude
+
+
+# Find minimum amplitudes for each waveform
+min_amp_square = find_min_amplitude(square_wave, delta_time, total_time, start_time, stim_end_time)
+min_amp_sawtooth = find_min_amplitude(sawtooth_wave, delta_time, total_time, start_time, stim_end_time)
+min_amp_sinusoidal = find_min_amplitude(sinusoidal_wave, delta_time, total_time, start_time, stim_end_time)
+
+print(f"Minimum amplitude for square wave: {min_amp_square}")
+print(f"Minimum amplitude for sawtooth wave: {min_amp_sawtooth}")
+print(f"Minimum amplitude for sinusoidal wave: {min_amp_sinusoidal}")
+
 '''
 
 # Finding I-T curve
@@ -379,57 +495,4 @@ for stim_amplitude, min_interval in results.items():
         print(f"Earliest interval for stimulus amplitude {stim_amplitude} μA/cm²: {min_interval:.2f} μsec")
     else:
         print(f"Stimulus amplitude {stim_amplitude} μA/cm² did not produce a second action potential.")
-
-'Dependency of threshold amplitude for action potential to waveform'
-delta_time = 50e-6  # Time step (s)
-total_time = 5e-3  # Total simulation time (s)
-time_steps = int(total_time / delta_time)
-
-
-def square_waveform(t, amplitude, duration=0.5e-3): return amplitude if t < duration else 0
-
-
-def sinusoidal_waveform(t, amplitude, frequency=100): return amplitude * np.sin(2 * np.pi * frequency * t) if (t < 1 /
-                                                                                                               frequency
-                                                                                                               ) else 0
-
-
-def sawtooth_waveform(t, amplitude, duration=0.5e-3): return amplitude * (t / duration) if t < duration else 0
-
-
-waveforms = {"Square": square_waveform, "Sinusoidal": sinusoidal_waveform, "Sawtooth": sawtooth_waveform}
-thresholds = {}
-
-for name, waveform in waveforms.items():
-    action_potential_triggered = False
-    amplitude = 0  # Start with 0 and incrementally increase until AP is generated
-
-    while not action_potential_triggered:
-        Vm = Vm_init
-        n, m, h = n_init, m_init, h_init
-        Vm_values = []
-        amplitude += 5  # Increment the amplitude
-
-        # Run HH model simulation
-        for t in range(time_steps):
-            current_time = t * delta_time
-            I_stim = waveform(current_time, amplitude)
-
-            # Update HH variables
-            dVm, dn, dm, dh, IK, INa = HH(Vm, n, m, h, I_stim)
-            Vm += dVm * delta_time
-            n += dn * delta_time
-            m += dm * delta_time
-            h += dh * delta_time
-            Vm_values.append(Vm)
-
-            if Vm > -55:  # Threshold for action potential
-                action_potential_triggered = True
-                break
-
-        thresholds[name] = amplitude
-
-print("\nThreshold amplitudes required to trigger action potential:")
-for name, amplitude in thresholds.items():
-    print(f"{name} waveform: {amplitude:.2f} μA/cm²")
 '''
