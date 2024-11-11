@@ -53,31 +53,34 @@ def HH(delta_time, total_time, stim_amplitude):
     h_values[0] = h_init
     n_values[0] = n_init
 
-    for t in range(len(t_values)):
+    for t in range(len(t_values) - 1):
         I_stim = stim_amplitude if start_time <= t * delta_time <= start_time + stim_durations else 0
-        m = m_values[t - 1] + delta_time * (
-                    alpha_m(Vm_values[t - 1]) * (1 - m_values[t - 1]) - beta_m(Vm_values[t - 1]) * m_values[t - 1])
-        h = h_values[t - 1] + delta_time * (
-                    alpha_h(Vm_values[t - 1]) * (1 - h_values[t - 1]) - beta_h(Vm_values[t - 1]) * h_values[t - 1])
-        n = n_values[t - 1] + delta_time * (
-                    alpha_n(Vm_values[t - 1]) * (1 - n_values[t - 1]) - beta_n(Vm_values[t - 1]) * n_values[t - 1])
+        m = m_values[t] + delta_time * (
+                    alpha_m(Vm_values[t]) * (1 - m_values[t]) - beta_m(Vm_values[t]) * m_values[t])
+        h = h_values[t] + delta_time * (
+                    alpha_h(Vm_values[t]) * (1 - h_values[t]) - beta_h(Vm_values[t]) * h_values[t])
+        n = n_values[t] + delta_time * (
+                    alpha_n(Vm_values[t]) * (1 - n_values[t]) - beta_n(Vm_values[t]) * n_values[t])
 
-        IK[t] = gK * (n ** 4) * (Vm_values[t - 1] - EK)
-        INa[t] = gNa * (m ** 3) * h * (Vm_values[t - 1] - ENa)
-        IL[t] = gL * (Vm_values[t - 1] - EL)
+        IK[t] = gK * (n_values[t] ** 4) * (Vm_values[t] - EK)
+        INa[t] = gNa * (m_values[t] ** 3) * h_values[t] * (Vm_values[t] - ENa)
+        IL[t] = gL * (Vm_values[t] - EL)
         Iion = IK[t] + INa[t] + IL[t]
-        dVm = delta_time * (I_stim - Iion) / Cm
-        Vm_values[t] = Vm_values[t - 1] + dVm
-        m_values[t] = m
-        h_values[t] = h
-        n_values[t] = n
+        dVm = delta_time / Cm * (I_stim - Iion)
+        Vm_values[t + 1] = Vm_values[t] + dVm
+        m_values[t + 1] = m
+        h_values[t + 1] = h
+        n_values[t + 1] = n
 
     return t_values, Vm_values, m_values, h_values, n_values, IK, INa, IL
-'''
+
 'Q NO.22: Linearity'
 t1, Vm1, _, _, _, _, _, _ = HH(delta_time, total_time, stim_amplitudes[0])
 t2, Vm2, _, _, _, _, _, _ = HH(delta_time, total_time, stim_amplitudes[1])
 t3, Vm3, _, _, _, _, _, _ = HH(delta_time, total_time, stim_amplitudes[2])
+
+print(Vm1)
+print(Vm2)
 
 fig, axs = plt.subplots(3, 1, figsize=(10, 15))
 
@@ -109,126 +112,175 @@ axs[2].legend()
 plt.tight_layout()
 plt.show()
 
-# Analysis: Compare Vm values for linearity
+# Linearity
 print('For t ≤ 100 μsec:')
 print(f'Half stimulus ratio: {np.mean(Vm1[:int(0.1 / delta_time)])/np.mean(Vm2[:int(0.1 / delta_time)]):.3f} (Expected: 0.5)')
 print(f'Double stimulus ratio: {np.mean(Vm3[:int(0.1 / delta_time)])/np.mean(Vm2[:int(0.1 / delta_time)]):.3f} (Expected: 2.0)')
 print('\nFor t > 200 μsec:')
 print(f'Half stimulus ratio: {np.mean(Vm1[int(0.2 / delta_time):])/np.mean(Vm2[int(0.2 / delta_time):]):.3f} (Expected: 0.5)')
-print(f'Double stimulus ratio: {np.mean(Vm3[int(0.2 / delta_time):])/np.mean(Vm2[int(0.2 / delta_time):]):.3f} (Expected: 2.0)')'''
+print(f'Double stimulus ratio: {np.mean(Vm3[int(0.2 / delta_time):])/np.mean(Vm2[int(0.2 / delta_time):]):.3f} (Expected: 2.0)\n')
 
 'Q NO.23: Threshold'
-amplitude_threshold, Vm_threshold, action_potential, action_potential_check, threshold = None, None, None, None, None
-amp_range = np.linspace(0, 200, 200)
-for amp in amp_range:
-    _, Vm_threshold, _, _, _, _, _, _ = HH(delta_time, total_time, amp)
-    for i in range(len(Vm_threshold)):
-        if Vm_threshold[i] > -55:  # Threshold for action potential(mV)
-            action_potential = True
-        if action_potential:
-            # Check by lowering amplitude by 1 μA/cm² to see if it fails to produce action potential
-            _, Vm_check, _, _, _, _, _, _ = HH(delta_time, total_time, amp - 1)
-            for j in range(len(Vm_check)):
-                if Vm_check[j] < -55:
-                    action_potential_check = True
-                    amplitude_threshold = amp
-                    threshold = Vm_threshold[i]
 
-print(f"\nJust-above-threshold stimulus amplitude: {amplitude_threshold} μA/cm²")
-print(f"Membrane voltage at the end of the stimulus (150 μsec): {threshold:.2f} mV")
-'''
 
-'Q NO.23: Threshold'
-amplitude_threshold = None
-Vm_threshold = None
-action_potential, action_potential_check = None, None
-amp_range = np.linspace(0.1, 4, 100)
-for stim_amplitude in amp_range:
-    Vm = Vm_init
-    n, m, h = 0.31768, 0.05293, 0.59612
-    Vm_values = []
+def AP_check(Vm_values):
+    threshold = -55
+    return np.any(Vm_values >= threshold) and np.max(Vm_values) > -40
 
-    for t in range(time_steps):
-        current_time = t * delta_time
-        I_stim = (stim_amplitude) if current_time <= stim_durations else 0
-        dVm, dn, dm, dh, IK, INa = HH(Vm, n, m, h, I_stim)
 
-        Vm += dVm * delta_time
-        n += dn * delta_time
-        m += dm * delta_time
-        h += dh * delta_time
-        Vm_values.append(Vm)
+# Threshold detection
+threshold_found = False
+amplitude_threshold, Vm_threshold = None, None
+amp, max_amp = 0, 100
 
-        if Vm > -55:  # Threshold for action potential(mV)
-            action_potential = True
+while not threshold_found and amp < max_amp:
+    amp += 0.5
+    print(f'Checking amplitude {amp} as the threshold')
+    _, Vm, _, _, _, _, _, _ = HH(delta_time, total_time, amp)
+    ap = AP_check(Vm)
 
-    if action_potential:
-        # Check by lowering amplitude by 1 μA/cm² to see if it fails to produce action potential
-        Vm_check = Vm_init
-        n_check, m_check, h_check = 0.31768, 0.05293, 0.59612  # Reset gating variables
-        action_potential_test = False
+    if ap:
+        _, Vm_check, _, _, _, _, _, _ = HH(delta_time, total_time, amp - 1)
+        threshold_check = AP_check(Vm_check)
+        if not threshold_check:
+            threshold_found = True
+            amplitude_threshold = amp
+            Vm_threshold = Vm[int(stim_end_time / delta_time)]
+            break
 
-        for t in range(time_steps):
-            current_time = t * delta_time
-            I_stim = (stim_amplitude - 1) if current_time <= stim_durations else 0
-            dVm, dn, dm, dh = HH(Vm_check, n_check, m_check, h_check, I_stim)
-
-            Vm_check += dVm * delta_time
-            n_check += dn * delta_time
-            m_check += dm * delta_time
-            h_check += dh * delta_time
-
-            if Vm > -55:
-                action_potential_check = True
-                break
-
-    if not action_potential_check:
-        threshold_amplitude = stim_amplitude
-        vm_threshold = Vm_values[int(stim_durations / delta_time)]
-        break
-
-print(f"\nJust-above-threshold stimulus amplitude: {threshold_amplitude} μA/cm²")
-print(f"Membrane voltage at the end of the stimulus (150 μsec): {vm_threshold:.2f} mV")
+if threshold_found:
+    print(f"Threshold stimulus amplitude: {amplitude_threshold:.2f} μA/cm²")
+    print(f"Membrane voltage at the end of the stimulus (150 μsec): {Vm_threshold:.2f} mV")
+# else: print("Threshold amplitude not found within the tested range.")
 
 'Q NO.24: Time to peak'
-stim_amplitude = [50, 200, 500]
-results = {}
-delta_time = 50e-6
-time_steps = int(total_time / delta_time)
+Vm = []
+stim_amplitudes = [50, 200, 500]
 for stim_amplitude in stim_amplitudes:
-    Vm = Vm_init
-    n, m, h = 0.31768, 0.05293, 0.59612  # Reset gating variables
-    Vm_values = []
-    peak_time = None
-    peak_value = -np.inf
-
-    # Run the simulation
-    for t in range(time_steps):
-        current_time = t * delta_time
-        I_stim = stim_amplitude if current_time <= stim_durations else 0
-        dVm, dn, dm, dh, IK, INa = HH(Vm, n, m, h, I_stim)
-
-        Vm += dVm * delta_time
-        n += dn * delta_time
-        m += dm * delta_time
-        h += dh * delta_time
-        Vm_values.append(Vm)
-
-        if Vm > peak_value:
-            peak_value = Vm
-            peak_time = current_time
-
-    results[stim_amplitude] = (peak_time * 1e6, peak_value)
-
-# Output results
-for stim_amplitude, (peak_time, peak_value) in results.items():
-    print(f"\nStimulus Amplitude: {stim_amplitude} μA/cm²")
-    print(f"Time to peak: {peak_time:.2f} μsec")
-    print(f"Peak Membrane Potential (Vm): {peak_value:.2f} mV")
+    t_values, Vm, _, _, _, _, _, _ = HH(delta_time, total_time, stim_amplitude)
+    max_index = np.argmax(Vm)
+    time_at_max_Vm = t_values[max_index]
+    print(f'\nFor stimulation amplitude {stim_amplitude} μA/cm², '
+          f'maximum membrane voltage {np.max(Vm)} will hit its maximum amount at {time_at_max_Vm}')
 
 'Q NO.25: Time to return to initial conditions'
+
+
+'Q NO.26: Leakage gL'
+
+
+'Q NO.27 AP from 2nd stimulus'
+
+
+'Evaluation of m,n, h gates, Vm, K and Na behavior over time'
+stim_amplitude = 200.0
+t_values, Vm_values, m_values, h_values, n_values, IK_values, INa_values, IL_values = HH(delta_time, total_time, stim_amplitude)
+
+# Plotting
+time_axis = np.arange(0, total_time, delta_time)
+fig, axs = plt.subplots(2, 2, figsize=(10, 9))
+fig.suptitle('Behavior of Vm, IK, INa during an action potential', fontsize=16)
+
+ax1 = plt.subplot(212)
+ax1.plot(time_axis, Vm_values, label='Vm')
+plt.xlabel('Time (μs)')
+plt.ylabel('Membrane potential (mV)')
+plt.title('Membrane Potential Vm')
+plt.xlim(0, 300)
+plt.grid()
+
+ax2 = plt.subplot(221)
+ax2.plot(time_axis, IK_values, label='IK')
+ax2.margins(2, 1)
+plt.xlabel('Time (μs)')
+plt.ylabel('Current density (μA/cm^2)')
+plt.title('K current densities')
+plt.xlim(0, 300)
+plt.legend()
+plt.grid()
+
+ax3 = plt.subplot(222)
+ax3.plot(time_axis, INa_values, label='INa')
+plt.title('Na current densities')
+plt.xlim(0, 300)
+plt.legend()
+plt.grid()
+
+plt.tight_layout()
+plt.show()
+
+fig, axs = plt.subplots(3, 1, figsize=(10, 9))
+fig.suptitle('Behavior of m, n, h gates during an action potential', fontsize=16)
+
+axs[0].plot(time_axis, n_values, label='n(t)')
+axs[0].set_xlabel('Time (μs)')
+axs[0].set_ylabel('Gate value')
+axs[0].set_title('K+ Gate Dynamics for n(t)')
+axs[0].set_xlim(50, 300)
+axs[0].grid()
+axs[0].legend()
+
+
+axs[1].plot(time_axis, m_values, label='m(t)')
+axs[1].set_xlabel('Time (μs)')
+axs[1].set_ylabel('Gate values')
+axs[1].set_title('Na+ Gate Dynamics for m(t)')
+axs[1].set_xlim(50, 300)
+axs[1].legend()
+axs[1].grid()
+
+axs[2].plot(time_axis, h_values, label='h(t)')
+axs[2].set_xlabel('Time (μs)')
+axs[2].set_ylabel('Gate values')
+axs[2].set_title('Na+ Gate Dynamics for h(t)')
+axs[2].set_xlim(50, 300)
+axs[2].legend()
+axs[2].grid()
+
+plt.tight_layout()
+plt.show()
+
+'Time interval T required for the cell to take before going through an action potential just after getting out of one'
+stim_amp_start = 100
+time_interval = np.arange(1, 10, 0.1)
+success = False
+for T in time_interval:
+    while not success:
+        _, Vm_first_ap, _, _, _, _, _, _ = HH(delta_time, total_time, stim_amp_start)
+'''
+
+# Finding I-T curve
+time_intervals = np.arange(1e-3, 10e-3, 100e-6)  # Time intervals in seconds (1 ms to 10 ms)
+stim_amplitude_start = 300  # Starting amplitude
+I_values = []
+
+for T in time_intervals:
+    success = False
+    current_I = stim_amplitude_start
+
+    # Adjust I until it creates a second AP at interval T
+    while not success:
+        Vm_first_ap = simulate_ap(stim_amplitude_start, start_time=0)
+        Vm_second_ap = simulate_ap(current_I, start_time=T)
+
+        # Check if second stimulus generated an action potential
+        if max(Vm_second_ap) > vm_threshold:
+            I_values.append(current_I)
+            success = True
+        else:
+            current_I += 10  # Increase the amplitude until AP is observed
+
+# Plotting the I-T curve
+plt.plot(time_intervals * 1e3, I_values, '-o')  # Convert time to ms for readability
+plt.xlabel("Interval T (ms)")
+plt.ylabel("Stimulus Amplitude I (μA/cm²)")
+plt.title("I-T Curve Showing Relative Refractory Period")
+plt.grid(True)
+plt.show()'''
+'''
+'Q NO.25: Time to return to initial conditions'
 # Stability envelope
-Vm_tolerance = 0.1  # mV
+Vm_tolerance = 0.1 * V  # mV
 gate_tolerance = 0.01  # for n, m, h
 Vm = Vm_init
 n, m, h = n_init, m_init, h_init
@@ -327,135 +379,6 @@ for stim_amplitude, min_interval in results.items():
         print(f"Earliest interval for stimulus amplitude {stim_amplitude} μA/cm²: {min_interval:.2f} μsec")
     else:
         print(f"Stimulus amplitude {stim_amplitude} μA/cm² did not produce a second action potential.")
-
-'Evaluation of m,n, h gates, Vm, K and Na behavior over time'
-stim_amplitude = 300.0
-Vm = Vm_init
-n, m, h = 0.31768, 0.05293, 0.59612
-Vm_values, n_values, m_values, h_values, IK_values, INa_values = [], [], [], [], [], []
-
-for t in range(time_steps):
-    current_time = t * delta_time
-    I_stim = stim_amplitude if current_time <= stim_durations else 0
-    dVm, dn, dm, dh, IK, INa = HH(Vm, n, m, h, I_stim)
-
-    Vm += dVm * delta_time
-    n += dn * delta_time
-    m += dm * delta_time
-    h += dh * delta_time
-    Vm_values.append(Vm)
-    n_values.append(n)
-    m_values.append(m)
-    h_values.append(h)
-    IK_values.append(IK)
-    INa_values.append(INa)
-
-# Plotting
-time_axis = np.arange(0, total_time, delta_time) * 1e6
-
-fig, axs = plt.subplots(2, 2, figsize=(10, 9))
-fig.suptitle('Behavior of Vm, IK, INa during an action potential', fontsize=16)
-
-ax1 = plt.subplot(212)
-ax1.plot(time_axis, Vm_values, label='Vm')
-plt.xlabel('Time (μs)')
-plt.ylabel('Membrane potential (mV)')
-plt.title('Membrane Potential Vm')
-plt.xlim(0, 1000)
-
-ax2 = plt.subplot(221)
-ax2.plot(time_axis, IK_values, label='IK')
-ax2.margins(2, 1)
-plt.xlabel('Time (μs)')
-plt.ylabel('Current density (μA/cm^2)')
-plt.title('K current densities')
-plt.xlim(0, 1000)
-plt.legend()
-
-ax3 = plt.subplot(222)
-ax3.plot(time_axis, INa_values, label='INa')
-plt.title('Na current densities')
-plt.xlim(0, 1000)
-plt.legend()
-
-plt.tight_layout()
-plt.show()
-
-fig, axs = plt.subplots(3, 1, figsize=(10, 9))
-fig.suptitle('Behavior of m, n, h gates during an action potential', fontsize=16)
-
-axs[0].plot(time_axis, n_values, label='n(t)')
-axs[0].set_xlabel('Time (μs)')
-axs[0].set_ylabel('Gate value')
-axs[0].set_title('K+ Gate Dynamics for n(t)')
-axs[0].legend()
-
-axs[1].plot(time_axis, m_values, label='m(t)')
-axs[1].set_xlabel('Time (μs)')
-axs[1].set_ylabel('Gate values')
-axs[1].set_title('Na+ Gate Dynamics for m(t)')
-axs[1].legend()
-
-axs[2].plot(time_axis, h_values, label='h(t)')
-axs[2].set_xlabel('Time (μs)')
-axs[2].set_ylabel('Gate values')
-axs[2].set_title('Na+ Gate Dynamics for h(t)')
-axs[2].legend()
-
-plt.tight_layout()
-plt.show()
-
-'Time interval T required for the cell to take before going through an action potential just after getting out of one'
-total_time = 20e-3  # Increase to capture long-term effects
-time_steps = int(total_time / delta_time)
-
-
-def simulate_ap(stim_amplitude, start_time):
-    Vm = Vm_init
-    n, m, h = 0.31768, 0.05293, 0.59612
-    Vm_values = []
-
-    for t in range(time_steps):
-        current_time = t * delta_time
-        I_stim = stim_amplitude if start_time <= current_time <= start_time + stim_durations else 0
-        dVm, dn, dm, dh, _, _ = HH(Vm, n, m, h, I_stim)
-        Vm += dVm * delta_time
-        n += dn * delta_time
-        m += dm * delta_time
-        h += dh * delta_time
-        Vm_values.append(Vm)
-
-    return Vm_values
-
-
-# Finding I-T curve
-time_intervals = np.arange(1e-3, 10e-3, 100e-6)  # Time intervals in seconds (1 ms to 10 ms)
-stim_amplitude_start = 300  # Starting amplitude
-I_values = []
-
-for T in time_intervals:
-    success = False
-    current_I = stim_amplitude_start
-
-    # Adjust I until it creates a second AP at interval T
-    while not success:
-        Vm_first_ap = simulate_ap(stim_amplitude_start, start_time=0)
-        Vm_second_ap = simulate_ap(current_I, start_time=T)
-
-        # Check if second stimulus generated an action potential
-        if max(Vm_second_ap) > vm_threshold:
-            I_values.append(current_I)
-            success = True
-        else:
-            current_I += 10  # Increase the amplitude until AP is observed
-
-# Plotting the I-T curve
-plt.plot(time_intervals * 1e3, I_values, '-o')  # Convert time to ms for readability
-plt.xlabel("Interval T (ms)")
-plt.ylabel("Stimulus Amplitude I (μA/cm²)")
-plt.title("I-T Curve Showing Relative Refractory Period")
-plt.grid(True)
-plt.show()
 
 'Dependency of threshold amplitude for action potential to waveform'
 delta_time = 50e-6  # Time step (s)
