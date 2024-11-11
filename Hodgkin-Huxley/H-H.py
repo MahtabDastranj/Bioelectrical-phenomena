@@ -417,7 +417,7 @@ plt.tight_layout()
 plt.show()
 
 'Time interval T required for the cell to take before going through an action potential just after getting out of one'
-
+# T is the time it takes to become stable again, which is what we obtained above
 
 'Dependency of threshold amplitude for action potential to waveform'
 Vm_values = []
@@ -493,7 +493,6 @@ def find_min_amplitude(waveform_func, delta_time, total_time, start_time, stim_e
     return min_amplitude
 
 
-# Find minimum amplitudes for each waveform
 min_amp_square = find_min_amplitude(square_wave, delta_time, total_time, start_time, stim_end_time)
 min_amp_sawtooth = find_min_amplitude(sawtooth_wave, delta_time, total_time, start_time, stim_end_time)
 min_amp_sinusoidal = find_min_amplitude(sinusoidal_wave, delta_time, total_time, start_time, stim_end_time)
@@ -501,4 +500,3 @@ min_amp_sinusoidal = find_min_amplitude(sinusoidal_wave, delta_time, total_time,
 print(f"Minimum amplitude for square wave: {min_amp_square}")
 print(f"Minimum amplitude for sawtooth wave: {min_amp_sawtooth}")
 print(f"Minimum amplitude for sinusoidal wave: {min_amp_sinusoidal}")
-
