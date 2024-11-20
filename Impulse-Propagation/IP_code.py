@@ -1,53 +1,50 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
-'Core-conductor model'
-Vm_rest = -60.0  # mV
-Cm = 1.0  # μF/cm^2
-EK, ENa, EL = -72.1, 52.4, -49.187
-gK, gNa, gL = 36.0, 120.0, 0.3
-radius = 30e-4  # cm
-rho_e = 50      # Ωcm
-rho_i = 3 * rho_e  # Ωcm
+'Core-Conductor model'
+x = np.linspace(-4, 4, 500)  # mm
+Vm = 50 * np.tanh(x)  # Transmembrane potential in mV
+dVm_dx = 50 * (1 - np.tanh(x)**2)  # Derivative of Vm
+r_i = 3  # Intracellular resistance per unit length (Ω/mm)
+r_e = 1  # extracellular resistance per unit length (Ω/mm)
+Ii = -dVm_dx / r_i  # Intracellular current
+dIi_dx = -100 * np.tanh(x) * (1 - np.tanh(x)**2)
+im = - dIi_dx
+Ie = -dVm_dx / r_e  # Extracellular current
 
+# Normalize the waveform
+Vm_norm = Vm / np.max(np.abs(Vm))
 
-def alpha_n(Vm): return 0.01 * (Vm + 50) / (1 - np.exp(-(Vm + 50) / 10))
+# Plot the original and normalized waveforms
+plt.figure(figsize=(10, 6))
 
+plt.plot(x, Vm, label=r"V_m(x) (Original)", color='blue')
+plt.plot(x, Vm_norm, label=r"V_m (Normalized)", linestyle='--', color='red')
+plt.plot(x, Ii, label=r"I_i(x) (Intracellular Current)", color='green')
+plt.plot(x, Ie, label=r"I_e(x) (Extracellular Current)", color='cyan')
+plt.plot(x, im, label=r'im(x)', color='magenta')
 
-def beta_n(Vm): return 0.125 * np.exp(-(Vm + 60) / 80)
+plt.title("Transmembrane Potential V_m(x) and Normalized Wave Shape")
+plt.xlabel("Position x (mm)")
+plt.ylabel("Amplitude")
+plt.legend()
+plt.grid(True)
+plt.show()
 
+'Vm(t) for x0 = 2mm, theta = 2 m/sec'
+Ri = 1000  # Ω.mm
+Re = 0
+x0 = 2  # mm
+x = 10  # mm
+theta = 2000  # mm/sec
+t = np.linspace(0, 4, 1000)
+Vm = 50 * np.tanh(t - ((x - x0) / theta))
 
-def alpha_m(Vm): return 0.1 * (Vm + 35) / (1 - np.exp(-(Vm + 35) / 10))
-
-
-def beta_m(Vm): return 4 * np.exp(-(Vm + 60) / 18)
-
-
-def alpha_h(Vm): return 0.07 * np.exp(-(Vm + 60) / 20)
-
-
-def beta_h(Vm): return 1 / (1 + np.exp(-(Vm + 30) / 10))
-
-
-# Steady-state values of gating variables
-n_rest = alpha_n(Vm_rest) / (alpha_n(Vm_rest) + beta_n(Vm_rest))
-m_rest = alpha_m(Vm_rest) / (alpha_m(Vm_rest) + beta_m(Vm_rest))
-h_rest = alpha_h(Vm_rest) / (alpha_h(Vm_rest) + beta_h(Vm_rest))
-
-# Conductance at rest
-gK_rest = gK * n_rest**4
-gNa_rest = gNa * m_rest**3 * h_rest
-
-# Total membrane conductance
-g_m = gK_rest + gNa_rest + gL
-R_m = 1 / g_m  # Ω·cm^2
-
-# Calculations
-r_m = R_m / (2 * np.pi * radius)  # Membrane resistance per unit length
-r_i = rho_i / (np.pi * radius**2)  # Intracellular resistance per unit length
-r_e = rho_e / (np.pi * (2 * radius)**2)  # Extracellular resistance per unit length
-
-# Output results
-print(f"Membrane Resistivity (R_m): {R_m:.2e} Ω·cm^2")
-print(f"Membrane Resistance (r_m): {r_m:.2e} Ω/cm")
-print(f"Intracellular Resistance per unit length (r_i): {r_i:.2e} Ω/cm")
-print(f"Extracellular Resistance per unit length (r_e): {r_e:.2e} Ω/cm")
+plt.figure(figsize=(10, 6))
+plt.plot(t, Vm, label=r"V_m(x) (Original)", color='blue')
+plt.title("Transmembrane Potential V_m(x) during a period of time")
+plt.xlabel("Time")
+plt.ylabel("Amplitude")
+plt.legend()
+plt.grid(True)
+plt.show()
