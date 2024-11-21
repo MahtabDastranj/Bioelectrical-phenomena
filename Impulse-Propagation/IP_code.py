@@ -9,9 +9,9 @@ dVm_dx = 50 * (1 - np.tanh(x)**2)  # Derivative of Vm
 r_i = 3  # Intracellular resistance per unit length (Ω/mm)
 r_e = 1  # extracellular resistance per unit length (Ω/mm)
 Ii = -dVm_dx / r_i  # Intracellular current
-dIi_dx = -100 * np.tanh(x) * (1 - np.tanh(x)**2)
-im = - dIi_dx
-Ie = -dVm_dx / r_e  # Extracellular current
+d2Vm_dx2 = -100 * np.tanh(x) * (1 - np.tanh(x)**2)
+im = d2Vm_dx2 * (1 / (r_e + r_i))
+Ie = dVm_dx / r_e  # Extracellular current
 
 # Normalize the waveform
 Vm_norm = Vm / np.max(np.abs(Vm))
@@ -38,11 +38,11 @@ radius = 0.05  # mm
 
 
 def Vm(t, x, x0=2, theta=2000):
-    return 50 * np.tanh(t - ((x - x0) / theta))
+    return 50 * np.tanh((t - 4) - ((x - x0) / theta))
 
 
-t = np.linspace(0, 4, 1000)
-Vm1 = Vm(t=t, x=10, x0=2, theta=2000)
+t = np.linspace(0, 16, 1000)
+Vm1 = Vm(t=t, x=10, x0=2, theta=2)
 
 plt.figure(figsize=(10, 6))
 
@@ -55,8 +55,9 @@ plt.legend()
 plt.grid(True)
 
 'Vm(t) for x0 = 2mm, theta = 2 m/sec'
-x = np.linspace(-20, 20, 1000)
-Vm2 = Vm(t=3, x=x, x0=2, theta=2000)
+x = np.linspace(-5, 5, 1000)
+Vm2 = Vm(t=3, x=x, x0=2, theta=2)
+
 plt.subplot(2, 1, 2)
 plt.plot(x, Vm2, label=r"V_m(x)", color='blue')
 plt.title("Transmembrane Potential V_m(x) along the fiber")
@@ -68,7 +69,6 @@ plt.grid(True)
 plt.tight_layout()
 plt.show()
 
-
 # Ii, Ie
 def r(radius, R):
     A = np.pi * radius ** 2
@@ -78,9 +78,9 @@ def r(radius, R):
 r_i = r(radius, Ri)
 r_e = r(radius, Re)
 dVm_dx = np.gradient(Vm2, x)
-# Ii = -dVm_dx / r_i, Ie = -dVm_dx / r_e
+# Ii = -dVm_dx / r_i, Ie = dVm_dx / r_e
 Ii = - dVm_dx / r_i
-Ie = - dVm_dx / r_e
+Ie = dVm_dx / r_e
 plt.plot(x, Ii, label=r"Ii", color='blue')
 plt.plot(x, Ie, label=r"Ie", color='green')
 plt.title("Intracellular and Extracellular Currents")
@@ -114,7 +114,7 @@ x = np.linspace(-50, 50, 1000)  # mm
 Vm_values = Vm(x, t=3)  # Compute Vm at t = 3 ms
 dVm_dx = np.gradient(Vm_values, x)  # Spatial derivative
 
-Ii = -dVm_dx / r_i
+Ii = - dVm_dx / r_i
 dIi_dx = np.gradient(Ii, x)
 
 
