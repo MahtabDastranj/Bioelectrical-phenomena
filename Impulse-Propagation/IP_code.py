@@ -142,6 +142,73 @@ plt.xlabel("x (mm)")
 plt.ylabel(r"Phi_e(x) (mV)")
 plt.grid(True)
 plt.legend()
+plt.show()
 
-plt.tight_layout()
+sigma_e = 1 / 400  # Extracellular conductivity (S/cm)
+x0_upstroke, x0_downstroke, x0_rest = 0, 10, 25  # Locations of sources (mm)
+I_upstroke, I_downstroke, I_rest = 50, -30, -10  # Currents (arbitrary units)
+
+
+# Function for potential from a monopole source
+def lumped_phi_e(x, x0, I, h):
+    return I / (4 * np.pi * sigma_e * np.sqrt((x - x0)**2 + h**2))
+
+
+x = np.linspace(0, 50, 1000)  # x from 0 to 50 mm
+
+# Calculate Φe for each h
+h_values = [0.01, 0.1, 1.0]  # in cm
+phi_e_results = {}
+
+for h in h_values:
+    phi_e_upstroke = lumped_phi_e(x, x0_upstroke, I_upstroke, h)
+    phi_e_downstroke = lumped_phi_e(x, x0_downstroke, I_downstroke, h)
+    phi_e_rest = lumped_phi_e(x, x0_rest, I_rest, h)
+    phi_e_results[h] = phi_e_upstroke + phi_e_downstroke + phi_e_rest
+
+# Plot lumped potentials for different h
+plt.figure(figsize=(10, 8))
+colors = ['red', 'cyan', 'magenta']
+for h, phi_e in phi_e_results.items():
+    plt.plot(x, phi_e, label=f"h = {h * 10000:.0f} µm", color=colors[h_values.index(h)])
+
+plt.title("Lumped Monopole Sources: Extracellular Potential Phi_e(x)")
+plt.xlabel("x (mm)")
+plt.ylabel(r"Phi_e(x) (mV)")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+
+def dipole_phi_e(x, x0, p, h):
+    return (p / (4 * np.pi * sigma_e)) * ((x - x0) / ((x - x0)**2 + h**2)**(3/2))
+
+
+x0_dipole1 = 10  # Midpoint of dipole 1 (mm)
+p_dipole1 = 20   # Dipole moment (arbitrary units)
+
+# Dipole 2 parameters
+x0_dipole2 = 30  # Midpoint of dipole 2 (mm)
+p_dipole2 = -15  # Dipole moment (arbitrary units)
+
+# Spatial range and h values
+x = np.linspace(0, 50, 1000)  # From x = 0 to 50 mm
+h_values = [0.01, 0.1]  # h = 100 µm (0.01 cm), h = 1000 µm (0.1 cm)
+# Compute Φe for each h
+phi_e_results = {}
+for h in h_values:
+    phi_e_dipole1 = dipole_phi_e(x, x0_dipole1, p_dipole1, h)
+    phi_e_dipole2 = dipole_phi_e(x, x0_dipole2, p_dipole2, h)
+    phi_e_results[h] = phi_e_dipole1 + phi_e_dipole2
+
+# Plot Φe for each h
+plt.figure(figsize=(12, 8))
+for h, phi_e in phi_e_results.items():
+    plt.plot(x, phi_e, label=f"h = {h * 10000:.0f} µm")
+
+plt.title("Extracellular Potential Phi_e(x) from Lumped Dipoles")
+plt.xlabel("x (mm)")
+plt.ylabel(r"Phi_e(x) (mV)")
+plt.legend()
+plt.grid(True)
 plt.show()
