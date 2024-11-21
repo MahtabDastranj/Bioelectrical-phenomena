@@ -69,6 +69,7 @@ plt.grid(True)
 plt.tight_layout()
 plt.show()
 
+
 # Ii, Ie
 def r(radius, R):
     A = np.pi * radius ** 2
