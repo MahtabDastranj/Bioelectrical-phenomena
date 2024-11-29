@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/Bioelectrical-phenomena.iml" filepath="$PROJECT_DIR$/.idea/Bioelectrical-phenomena.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../../Computational intelligance/Codes/Computational-Intelligance/.idea/Computational-Intelligance.iml" filepath="$PROJECT_DIR$/../../Computational intelligance/Codes/Computational-Intelligance/.idea/Computational-Intelligance.iml" />
     </modules>
   </component>
 </project>
