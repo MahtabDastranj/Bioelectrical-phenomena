@@ -4,6 +4,7 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/Bioelectrical-phenomena.iml" filepath="$PROJECT_DIR$/.idea/Bioelectrical-phenomena.iml" />
       <module fileurl="file://$PROJECT_DIR$/../../Computational intelligance/Codes/Computational-Intelligance/.idea/Computational-Intelligance.iml" filepath="$PROJECT_DIR$/../../Computational intelligance/Codes/Computational-Intelligance/.idea/Computational-Intelligance.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../../../../Apply/radial/Radial/.idea/Radial.iml" filepath="$PROJECT_DIR$/../../../../Apply/radial/Radial/.idea/Radial.iml" />
     </modules>
   </component>
 </project>
