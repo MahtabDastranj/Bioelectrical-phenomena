@@ -2,10 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
 
-# --------------------------------------------------
-# 1) MODEL PARAMETERS
-# --------------------------------------------------
-
 L = 10e-6  # 10 micrometers side
 surface_area = 6.0 * (L ** 2)  # 6 sides * L^2
 volume = L ** 3
@@ -35,11 +31,6 @@ I0 = 0  # 1 nA peak when field is ON
 t_max = 2.0  # seconds, enough to see multiple pulses
 dt = 1e-5  # time step for ODE solver output
 t_eval = np.arange(0, t_max, dt)
-
-
-# --------------------------------------------------
-# 2) HELPER FUNCTIONS FOR THE PULSED FIELD
-# --------------------------------------------------
 
 def pulse_wave(t, period, width):
     """
@@ -92,10 +83,6 @@ def dALLdt(t, Y):
 
     return [dV_dt_mV, dm_dt]
 
-
-# --------------------------------------------------
-# 3) SOLVE THE ODE
-# --------------------------------------------------
 V0 = -70.0
 m0_inf = alpha_m(V0) / (alpha_m(V0) + beta_m(V0))
 Y0 = [V0, m0_inf]
@@ -105,9 +92,6 @@ t_sol = sol.t
 V_sol = sol.y[0]
 m_sol = sol.y[1]
 
-# --------------------------------------------------
-# 4) BUILD ARRAYS FOR PLOTTING
-# --------------------------------------------------
 # (A) E-field vs time (pulsed)
 E_array = np.array([
     E_amplitude * pulse_wave(tt, pulse_period, pulse_width)
@@ -118,9 +102,6 @@ I_ext = E_t * L / R_ext
 # (B) Ionic current
 I_Ca_array = g_max * m_sol * ((V_sol - Erev) * 1e-3)
 
-# --------------------------------------------------
-# 5) FOURIER ANALYSIS (STEADY-STATE)
-# --------------------------------------------------
 t_min_fft = 1  # skip first 0.2 s to ignore transients
 idx_min_fft = np.where(t_sol >= t_min_fft)[0][0]
 
@@ -166,10 +147,6 @@ for hfreq in harmonics:
     amp_dip = np.abs(fft_dipole[idx_dip])
     print(f"Harmonic {hfreq:.2f} Hz -> Membrane amplitude: {amp_mem:.3e}, Dipole amplitude: {amp_dip:.3e}")
 
-
-# --------------------------------------------------
-# 6) PLOTTING: FOUR PANELS
-# --------------------------------------------------
 fig, axes = plt.subplots(2, 2, figsize=(12, 8))
 # Panel (1): Pulsed Electric Field
 axes[0,0].plot(t_sol, E_array, 'b-')
